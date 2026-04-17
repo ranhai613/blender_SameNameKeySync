@@ -1,6 +1,12 @@
 bl_info = {
     "name": "Same Name ShapeKey Sync",
+    "author": "ranhai613",
+    "version": (1, 0),
     "blender": (3, 0, 0),
+    "location": "View3D > Sidebar > MyAddon Tab",
+    "description": "Sync shape key values across all objects in the scene that have shape keys with the same name.",
+    "warning": "",
+    "doc_url": "",
     "category": "Object",
 }
 
@@ -37,37 +43,16 @@ def update_sync_keys(context, updated_key_name):
             keys = obj.data.shape_keys.key_blocks
             if key_name in keys:
                 keys[key_name].value = value
-                obj.active_shape_key_index = keys.find(updated_key_name)
-        
-        # try to update the ref object if it exists
-        if key_name.startswith('===') and key_name.endswith('==='):
-            continue
-        
-        if not '__' in key_name:
-            continue
-        
-        name_prefix = key_name.split('__')[0]
-        ref_col = bpy.data.collections.get(name_prefix)
-        if not ref_col:
-            continue
-        
-        key_name_without_prefix = key_name[len(name_prefix)+2:]
-        for ref_obj in ref_col.objects:
-            if ref_obj.type != 'MESH' or not ref_obj.data.shape_keys:
-                continue
-            keys = ref_obj.data.shape_keys.key_blocks
-            if key_name_without_prefix in keys:
-                keys[key_name_without_prefix].value = value
-        
+                obj.active_shape_key_index = keys.find(updated_key_name)        
 
 # -----------------------
 # UI
 # -----------------------
 class VIEW3D_PT_multi_sync(bpy.types.Panel):
-    bl_label = "Multi ShapeKey Sync"
+    bl_label = "Same Name ShapeKey Sync"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "Tool"
+    bl_category = "MyAddon"
 
     def draw(self, context):
         layout = self.layout
@@ -86,7 +71,7 @@ class VIEW3D_PT_multi_sync(bpy.types.Panel):
             row.operator("sync_keys.remove_key", text="", icon='X').index = idx
 
 # -----------------------
-# オペレーター
+# Operators
 # -----------------------
 class SYNCKEYS_OT_add_key(bpy.types.Operator):
     bl_idname = "sync_keys.add_key"
