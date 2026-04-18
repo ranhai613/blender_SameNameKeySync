@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Same Name ShapeKey Sync",
     "author": "ranhai613",
-    "version": (1, 1),
+    "version": (1, 2),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > MyAddon Tab",
     "description": "Sync shape key values across all objects in the scene that have shape keys with the same name.",
@@ -35,20 +35,25 @@ def update_sync_keys(context, updated_key_name):
     if getattr(scene, "sync_keys_bulk_updating", False):
         return
 
+    if not updated_key_name:
+        return
+
+    target_item = None
     for item in scene.sync_keys:
-        key_name = item.name
-        value = item.value
+        if item.name == updated_key_name:
+            target_item = item
+            break
 
-        if not key_name:
+    if target_item is None:
+        return
+
+    value = target_item.value
+    for obj in bpy.data.objects:  # all objects in the scene
+        if obj.type != 'MESH' or not obj.data.shape_keys:
             continue
-
-        for obj in bpy.data.objects:  # all objects in the scene
-            if obj.type != 'MESH' or not obj.data.shape_keys:
-                continue
-            keys = obj.data.shape_keys.key_blocks
-            if key_name in keys:
-                keys[key_name].value = value
-                obj.active_shape_key_index = keys.find(updated_key_name)        
+        keys = obj.data.shape_keys.key_blocks
+        if updated_key_name in keys:
+            keys[updated_key_name].value = value
 
 # -----------------------
 # UI
