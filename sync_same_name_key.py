@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Same Name ShapeKey Sync",
     "author": "ranhai613",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > MyAddon Tab",
     "description": "Sync shape key values across all objects in the scene that have shape keys with the same name.",
