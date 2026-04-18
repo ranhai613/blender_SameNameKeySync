@@ -11,7 +11,7 @@ bl_info = {
 }
 
 import bpy
-from bpy.props import StringProperty, FloatProperty, CollectionProperty, IntProperty
+from bpy.props import StringProperty, FloatProperty, CollectionProperty, IntProperty, BoolProperty
 from bpy.types import PropertyGroup
 
 # -----------------------
@@ -30,6 +30,11 @@ class SyncKeyItem(PropertyGroup):
 # -----------------------
 def update_sync_keys(context, updated_key_name):
     scene = context.scene
+
+    # Skip expensive sync while keys are being added in bulk.
+    if getattr(scene, "sync_keys_bulk_updating", False):
+        return
+
     for item in scene.sync_keys:
         key_name = item.name
         value = item.value
@@ -99,31 +104,35 @@ class SYNCKEYS_OT_add_all_keys(bpy.types.Operator):
         scene = context.scene
         existing_names = {item.name for item in scene.sync_keys}
 
-        for obj in context.selected_objects:
+        # Collect first-seen value for each key name once to avoid repeated full-scene scans.
+        first_value_by_name = {}
+        for obj in bpy.data.objects:
             if obj.type != 'MESH' or not obj.data.shape_keys:
                 continue
             for key in obj.data.shape_keys.key_blocks:
-                if key.name == "Basis":
+                if key.name == "Basis" or key.name in first_value_by_name:
                     continue
-                if key.name in existing_names:
+                first_value_by_name[key.name] = key.value
+
+        scene.sync_keys_bulk_updating = True
+        try:
+            for obj in context.selected_objects:
+                if obj.type != 'MESH' or not obj.data.shape_keys:
                     continue
-
-                # Add a new item
-                item = scene.sync_keys.add()
-                item.name = key.name
-
-                # Read value from all objects (use the first found value as the initial)
-                initial_value = key.value
-                for obj2 in bpy.data.objects:
-                    if obj2.type != 'MESH' or not obj2.data.shape_keys:
+                for key in obj.data.shape_keys.key_blocks:
+                    if key.name == "Basis":
                         continue
-                    keys2 = obj2.data.shape_keys.key_blocks
-                    if key.name in keys2:
-                        initial_value = keys2[key.name].value
-                        break
-                item.value = initial_value
+                    if key.name in existing_names:
+                        continue
 
-                existing_names.add(key.name)
+                    # Add a new item
+                    item = scene.sync_keys.add()
+                    item.name = key.name
+                    item.value = first_value_by_name.get(key.name, key.value)
+
+                    existing_names.add(key.name)
+        finally:
+            scene.sync_keys_bulk_updating = False
 
         return {'FINISHED'}
 
@@ -151,8 +160,10 @@ def register():
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.Scene.sync_keys = CollectionProperty(type=SyncKeyItem)
+    bpy.types.Scene.sync_keys_bulk_updating = BoolProperty(default=False)
 
 def unregister():
+    del bpy.types.Scene.sync_keys_bulk_updating
     del bpy.types.Scene.sync_keys
     for c in reversed(classes):
         bpy.utils.unregister_class(c)
